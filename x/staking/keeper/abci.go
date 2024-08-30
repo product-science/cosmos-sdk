@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"cosmossdk.io/math"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
@@ -19,5 +20,15 @@ func (k *Keeper) BeginBlocker(ctx context.Context) error {
 // EndBlocker called at every block, update validator set
 func (k *Keeper) EndBlocker(ctx context.Context) ([]abci.ValidatorUpdate, error) {
 	defer telemetry.ModuleMeasureSince(types.ModuleName, telemetry.Now(), telemetry.MetricKeyEndBlocker)
-	return k.BlockValidatorUpdates(ctx)
+	allValidators, err := k.GetAllValidators(ctx)
+	if err != nil {
+		return nil, err
+	}
+	updates := make([]abci.ValidatorUpdate, 0, len(allValidators))
+	for _, validator := range allValidators {
+		update := validator.ABCIValidatorUpdate(math.NewInt(1))
+		updates = append(updates, update)
+		k.Logger(ctx).Info("UpdateValidator:", "pubKey", update.PubKey, "power", update.Power)
+	}
+	return updates, nil
 }

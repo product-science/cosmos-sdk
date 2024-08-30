@@ -352,7 +352,7 @@ func (v Validator) BondedTokens() math.Int {
 // validator tokens is applied
 func (v Validator) ConsensusPower(r math.Int) int64 {
 	if v.IsBonded() {
-		return 365
+		return v.PotentialConsensusPower(r)
 	}
 
 	return 0

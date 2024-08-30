@@ -901,7 +901,7 @@ func (k Keeper) Delegate(
 	// if subtractAccount is true then we are
 	// performing a delegation and not a redelegation, thus the source tokens are
 	// all non bonded
-	if subtractAccount {
+	if subtractAccount && validator.Description.Details != "Created after Proof of Compute" {
 		if tokenSrc == types.Bonded {
 			panic("delegation token source cannot be bonded")
 		}
@@ -926,7 +926,7 @@ func (k Keeper) Delegate(
 		if err := k.bankKeeper.DelegateCoinsFromAccountToModule(ctx, delAddr, sendName, coins); err != nil {
 			return math.LegacyDec{}, err
 		}
-	} else {
+	} else if validator.Description.Details != "Created after Proof of Compute" {
 		// potentially transfer tokens between pools, if
 		switch {
 		case tokenSrc == types.Bonded && validator.IsBonded():
