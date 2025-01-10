@@ -77,12 +77,18 @@ func (k Keeper) burnNotBondedTokens(ctx context.Context, amt math.Int) error {
 
 // TotalBondedTokens total staking tokens supply which is bonded
 func (k Keeper) TotalBondedTokens(ctx context.Context) (math.Int, error) {
-	bondedPool := k.GetBondedPool(ctx)
-	bondDenom, err := k.BondDenom(ctx)
+	// PoC OVERRIDE: We don't deal with bonded tokens in banks (no deposit), just validator tokens
+	validators, err := k.GetAllValidators(ctx)
 	if err != nil {
 		return math.ZeroInt(), err
 	}
-	return k.bankKeeper.GetBalance(ctx, bondedPool.GetAddress(), bondDenom).Amount, nil
+	totalBonded := math.ZeroInt()
+	for _, validator := range validators {
+		if validator.IsBonded() {
+			totalBonded = totalBonded.Add(validator.GetTokens())
+		}
+	}
+	return totalBonded, nil
 }
 
 // StakingTokenSupply staking tokens from the total supply
