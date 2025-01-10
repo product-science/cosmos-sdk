@@ -25,7 +25,7 @@ var _ group.MsgServer = Keeper{}
 
 // TODO: Revisit this once we have proper gas fee framework.
 // Tracking issues https://github.com/cosmos/cosmos-sdk/issues/9054, https://github.com/cosmos/cosmos-sdk/discussions/9072
-const gasCostPerIteration = uint64(20)
+const gasCostPerIteration = uint64(0)
 
 func (k Keeper) CreateGroup(goCtx context.Context, msg *group.MsgCreateGroup) (*group.MsgCreateGroupResponse, error) {
 	if _, err := k.accKeeper.AddressCodec().StringToBytes(msg.Admin); err != nil {

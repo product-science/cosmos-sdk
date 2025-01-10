@@ -18,6 +18,7 @@ func (k Keeper) SetComputeValidators(ctx context.Context, computeResults []Compu
 	server := NewMsgServerImpl(&k)
 	logger := k.Logger(ctx)
 	resultsMap := make(map[string]ComputeResult)
+	totalBonded := 0
 	for _, result := range computeResults {
 		resultsMap[result.ValidatorPubKey.String()] = result
 	}
@@ -54,11 +55,20 @@ func (k Keeper) SetComputeValidators(ctx context.Context, computeResults []Compu
 			if err != nil {
 				return nil, err
 			}
+			err = k.delegateResult(ctx, computeResult, validator.OperatorAddress)
+			if err != nil {
+				return nil, err
+			}
+			totalBonded += int(computeResult.Power)
 		} else {
 			logger.Info("Removing validator", "operator", validator.GetOperator(), "power", computeResult.Power)
 			// update to new power
 			validator.Tokens = math.NewInt(0)
 			err := k.SetValidator(ctx, validator)
+			k.RemoveDelegation(ctx, types.Delegation{
+				DelegatorAddress: computeResult.OperatorAddress,
+				ValidatorAddress: validator.OperatorAddress,
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -69,14 +79,29 @@ func (k Keeper) SetComputeValidators(ctx context.Context, computeResults []Compu
 	for _, computeResult := range computeResults {
 		if _, ok := validatorsAlreadyExisting[computeResult.ValidatorPubKey.String()]; !ok {
 			logger.Info("Creating validator", "power", computeResult, "operator", computeResult.OperatorAddress)
-			_, err := k.createValidator(ctx, computeResult, server)
+			newVal, err := k.createValidator(ctx, computeResult, server)
 			if err != nil {
 				logger.Error("Error creating validator", "error", err.Error())
 				return nil, err
 			}
+			err = k.delegateResult(ctx, computeResult, newVal.OperatorAddress)
+			if err != nil {
+				logger.Error("Error delegating result", "error", err.Error())
+				return nil, err
+			}
+			totalBonded += int(computeResult.Power)
 		}
 	}
 	return k.GetAllValidators(ctx)
+}
+
+func (k Keeper) delegateResult(ctx context.Context, computeResult ComputeResult, validatorAddress string) error {
+	delegation := types.Delegation{
+		DelegatorAddress: computeResult.OperatorAddress,
+		ValidatorAddress: validatorAddress,
+	}
+	delegation.Shares = math.LegacyNewDec(computeResult.Power)
+	return k.SetDelegation(ctx, delegation)
 }
 
 func (k Keeper) createValidator(ctx context.Context, computeResult ComputeResult, server types.MsgServer) (*types.Validator, error) {

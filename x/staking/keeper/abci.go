@@ -27,6 +27,10 @@ func (k *Keeper) EndBlocker(ctx context.Context) ([]abci.ValidatorUpdate, error)
 	updates := make([]abci.ValidatorUpdate, 0, len(allValidators))
 	for _, validator := range allValidators {
 		update := validator.ABCIValidatorUpdate(math.NewInt(1))
+		if update.Power == 0 {
+			k.Logger(ctx).Info("Validator has no power, skipping update", "validator", update)
+			continue
+		}
 		updates = append(updates, update)
 		k.Logger(ctx).Info("UpdateValidator:", "pubKey", update.PubKey, "power", update.Power)
 	}
