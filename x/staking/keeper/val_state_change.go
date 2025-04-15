@@ -129,6 +129,7 @@ func (k Keeper) BlockValidatorUpdates(ctx context.Context) ([]abci.ValidatorUpda
 // at the previous block height or were removed from the validator set entirely
 // are returned to CometBFT.
 func (k Keeper) ApplyAndReturnValidatorSetUpdates(ctx context.Context) (updates []abci.ValidatorUpdate, err error) {
+	k.Logger(ctx).Info("applying validator set updates")
 	params, err := k.GetParams(ctx)
 	if err != nil {
 		return nil, err
@@ -161,6 +162,7 @@ func (k Keeper) ApplyAndReturnValidatorSetUpdates(ctx context.Context) (updates 
 		if err != nil {
 			return nil, fmt.Errorf("validator record not found for address: %X", valAddr)
 		}
+		k.Logger(ctx).Info("iterating validator", "validator", validator.String(), "power", validator.Tokens, "status", validator.Status)
 
 		if validator.Jailed {
 			return nil, errors.New("should never retrieve a jailed validator from the power store")
@@ -169,18 +171,21 @@ func (k Keeper) ApplyAndReturnValidatorSetUpdates(ctx context.Context) (updates 
 		// if we get to a zero-power validator (which we don't bond),
 		// there are no more possible bonded validators
 		if validator.PotentialConsensusPower(k.PowerReduction(ctx)) == 0 {
+			k.Logger(ctx).Info("validator has zero power", "reduction", k.PowerReduction(ctx), "power", validator.PotentialConsensusPower(k.PowerReduction(ctx)))
 			break
 		}
 
 		// apply the appropriate state change if necessary
 		switch {
 		case validator.IsUnbonded():
+			k.Logger(ctx).Info("moving unbonded to bonded", "reduction", k.PowerReduction(ctx), "power", validator.PotentialConsensusPower(k.PowerReduction(ctx)))
 			validator, err = k.unbondedToBonded(ctx, validator)
 			if err != nil {
 				return nil, err
 			}
 			amtFromNotBondedToBonded = amtFromNotBondedToBonded.Add(validator.GetTokens())
 		case validator.IsUnbonding():
+			k.Logger(ctx).Info("moving unbonding to bonded", "reduction", k.PowerReduction(ctx), "power", validator.PotentialConsensusPower(k.PowerReduction(ctx)))
 			validator, err = k.unbondingToBonded(ctx, validator)
 			if err != nil {
 				return nil, err
@@ -234,28 +239,31 @@ func (k Keeper) ApplyAndReturnValidatorSetUpdates(ctx context.Context) (updates 
 		if err = k.DeleteLastValidatorPower(ctx, str); err != nil {
 			return nil, err
 		}
+		k.Logger(ctx).Info("removing validator", "validator", validator.String(), "power", validator.Tokens, "status", validator.Status)
 
 		updates = append(updates, validator.ABCIValidatorUpdateZero())
 	}
 
+	// REMOVED: Since we are not staking coins anymore, but instead using coins as a proxy for
+	// compute power, this would cause us to move money that isn't there!
 	// Update the pools based on the recent updates in the validator set:
 	// - The tokens from the non-bonded candidates that enter the new validator set need to be transferred
 	// to the Bonded pool.
 	// - The tokens from the bonded validators that are being kicked out from the validator set
 	// need to be transferred to the NotBonded pool.
-	switch {
-	// Compare and subtract the respective amounts to only perform one transfer.
-	// This is done in order to avoid doing multiple updates inside each iterator/loop.
-	case amtFromNotBondedToBonded.GT(amtFromBondedToNotBonded):
-		if err = k.notBondedTokensToBonded(ctx, amtFromNotBondedToBonded.Sub(amtFromBondedToNotBonded)); err != nil {
-			return nil, err
-		}
-	case amtFromNotBondedToBonded.LT(amtFromBondedToNotBonded):
-		if err = k.bondedTokensToNotBonded(ctx, amtFromBondedToNotBonded.Sub(amtFromNotBondedToBonded)); err != nil {
-			return nil, err
-		}
-	default: // equal amounts of tokens; no update required
-	}
+	//switch {
+	//// Compare and subtract the respective amounts to only perform one transfer.
+	//// This is done in order to avoid doing multiple updates inside each iterator/loop.
+	//case amtFromNotBondedToBonded.GT(amtFromBondedToNotBonded):
+	//	if err = k.notBondedTokensToBonded(ctx, amtFromNotBondedToBonded.Sub(amtFromBondedToNotBonded)); err != nil {
+	//		return nil, err
+	//	}
+	//case amtFromNotBondedToBonded.LT(amtFromBondedToNotBonded):
+	//	if err = k.bondedTokensToNotBonded(ctx, amtFromBondedToNotBonded.Sub(amtFromNotBondedToBonded)); err != nil {
+	//		return nil, err
+	//	}
+	//default: // equal amounts of tokens; no update required
+	//}
 
 	// set total power on lookup index if there are any updates
 	if len(updates) > 0 {
@@ -269,6 +277,9 @@ func (k Keeper) ApplyAndReturnValidatorSetUpdates(ctx context.Context) (updates 
 		return nil, err
 	}
 
+	for _, update := range updates {
+		k.Logger(ctx).Info("final:validator update", "power", update.Power, "pubKey", update.PubKey)
+	}
 	return updates, err
 }
 
