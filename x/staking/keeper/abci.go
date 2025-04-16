@@ -2,8 +2,6 @@ package keeper
 
 import (
 	"context"
-	"cosmossdk.io/math"
-
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
@@ -20,19 +18,5 @@ func (k *Keeper) BeginBlocker(ctx context.Context) error {
 // EndBlocker called at every block, update validator set
 func (k *Keeper) EndBlocker(ctx context.Context) ([]abci.ValidatorUpdate, error) {
 	defer telemetry.ModuleMeasureSince(types.ModuleName, telemetry.Now(), telemetry.MetricKeyEndBlocker)
-	allValidators, err := k.GetAllValidators(ctx)
-	if err != nil {
-		return nil, err
-	}
-	updates := make([]abci.ValidatorUpdate, 0, len(allValidators))
-	for _, validator := range allValidators {
-		update := validator.ABCIValidatorUpdate(math.NewInt(1))
-		if update.Power == 0 {
-			k.Logger(ctx).Info("Validator has no power, skipping update", "validator", update)
-			continue
-		}
-		updates = append(updates, update)
-		k.Logger(ctx).Info("UpdateValidator:", "pubKey", update.PubKey, "power", update.Power)
-	}
-	return updates, nil
+	return k.BlockValidatorUpdates(ctx)
 }

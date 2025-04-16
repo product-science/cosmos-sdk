@@ -49,34 +49,25 @@ func (k Keeper) SetComputeValidators(ctx context.Context, computeResults []Compu
 		computeResult, inNewResults := resultsMap[conPubKey.String()]
 		if inNewResults {
 			logger.Info("Updating validator", "operator", validator.GetOperator(), "power", computeResult.Power)
-			// update to new power
-			validator.Tokens = math.NewInt(computeResult.Power)
-			err := k.SetValidator(ctx, validator)
-			if err != nil {
-				return nil, err
-			}
-			err = k.delegateResult(ctx, computeResult, validator.OperatorAddress)
+			err := k.setValidatorPower(ctx, validator, computeResult.Power)
 			if err != nil {
 				return nil, err
 			}
 			totalBonded += int(computeResult.Power)
 		} else {
 			logger.Info("Removing validator", "operator", validator.GetOperator(), "power", computeResult.Power)
-			// update to new power
-			validator.Tokens = math.NewInt(0)
-			err := k.SetValidator(ctx, validator)
-			k.RemoveDelegation(ctx, types.Delegation{
-				DelegatorAddress: computeResult.OperatorAddress,
-				ValidatorAddress: validator.OperatorAddress,
-			})
+			err := k.setValidatorPower(ctx, validator, 0)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
-
 	// Handle validators not in
 	for _, computeResult := range computeResults {
+		if computeResult.Power == 0 {
+			logger.Warn("Power is 0 for new validator, skipping validator", "address", computeResult.OperatorAddress, "key", computeResult.ValidatorPubKey.String())
+			continue
+		}
 		if _, ok := validatorsAlreadyExisting[computeResult.ValidatorPubKey.String()]; !ok {
 			logger.Info("Creating validator", "power", computeResult, "operator", computeResult.OperatorAddress)
 			newVal, err := k.createValidator(ctx, computeResult, server)
@@ -95,13 +86,40 @@ func (k Keeper) SetComputeValidators(ctx context.Context, computeResults []Compu
 	return k.GetAllValidators(ctx)
 }
 
+func (k Keeper) setValidatorPower(ctx context.Context, validator types.Validator, power int64) error {
+	logger := k.Logger(ctx)
+	err := k.DeleteValidatorByPowerIndex(ctx, validator)
+	if err != nil {
+		logger.Error("Error deleting validator by power index", "error", err.Error())
+		return err
+	}
+
+	validator.Tokens = math.NewInt(power)
+	err = k.SetValidator(ctx, validator)
+	if err != nil {
+		logger.Error("Error setting validator", "error", err.Error())
+		return err
+	}
+	err = k.SetValidatorByPowerIndex(ctx, validator)
+	if err != nil {
+		logger.Error("Error setting validator by power index", "error", err.Error())
+		return err
+	}
+	return nil
+}
+
 func (k Keeper) delegateResult(ctx context.Context, computeResult ComputeResult, validatorAddress string) error {
 	delegation := types.Delegation{
 		DelegatorAddress: computeResult.OperatorAddress,
 		ValidatorAddress: validatorAddress,
 	}
 	delegation.Shares = math.LegacyNewDec(computeResult.Power)
-	return k.SetDelegation(ctx, delegation)
+	err := k.SetDelegation(ctx, delegation)
+	if err != nil {
+		k.Logger(ctx).Error("Error setting delegation", "error", err.Error())
+		return err
+	}
+	return err
 }
 
 func (k Keeper) createValidator(ctx context.Context, computeResult ComputeResult, server types.MsgServer) (*types.Validator, error) {
