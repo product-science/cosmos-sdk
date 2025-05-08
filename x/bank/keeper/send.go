@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"runtime"
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/core/store"
@@ -295,6 +296,15 @@ func (k BaseSendKeeper) subUnlockedCoins(ctx context.Context, addr sdk.AccAddres
 			if len(spendable) == 0 {
 				spendable = sdk.Coins{sdk.Coin{Denom: coin.Denom, Amount: math.ZeroInt()}}
 			}
+
+			stack := make([]byte, 2048)
+			runtime.Stack(stack, false)
+			k.logger.Error("insufficient spendable funds",
+				"spendable", spendable,
+				"required", coin,
+				"account", addr.String(),
+				"stack", string(stack))
+
 			return errorsmod.Wrapf(
 				sdkerrors.ErrInsufficientFunds,
 				"spendable balance %s is smaller than %s",
