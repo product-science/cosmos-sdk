@@ -43,6 +43,7 @@ func (k Keeper) notBondedTokensToBonded(ctx context.Context, tokens math.Int) er
 
 // burnBondedTokens burns coins from the bonded pool module account
 func (k Keeper) burnBondedTokens(ctx context.Context, amt math.Int) error {
+	k.Logger(ctx).Error("GLEB", "burnBondedTokens")
 	if !amt.IsPositive() {
 		// skip as no coins need to be burned
 		return nil
