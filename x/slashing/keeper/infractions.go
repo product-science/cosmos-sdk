@@ -111,6 +111,7 @@ func (k Keeper) HandleValidatorSignature(ctx context.Context, addr cryptotypes.A
 
 	// if we are past the minimum height and the validator has missed too many blocks, punish them
 	if height > minHeight && signInfo.MissedBlocksCounter > maxMissed {
+		logger.Info("Missed too many blocks.", "height", height, "validator", consAddr.String(), "missed", signInfo.MissedBlocksCounter, "threshold", minSignedPerWindow)
 		validator, err := k.sk.ValidatorByConsAddr(ctx, consAddr)
 		if err != nil {
 			return err
