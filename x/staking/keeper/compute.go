@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+
 	"cosmossdk.io/math"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -124,11 +125,10 @@ func (k Keeper) delegateResult(ctx context.Context, computeResult ComputeResult,
 
 func (k Keeper) createValidator(ctx context.Context, computeResult ComputeResult, server types.MsgServer) (*types.Validator, error) {
 	logger := k.Logger(ctx)
-	s := computeResult.ValidatorPubKey.Address().String()
-	newValAddr, err := sdk.ValAddressFromHex(s)
+	newValAddr, err := sdk.ValAddressFromBech32(computeResult.OperatorAddress)
 
 	if err != nil {
-		logger.Error("Error converting pubkey to val address", "error", err.Error())
+		logger.Error("Error converting operator address to val address", "error", err.Error())
 		return nil, err
 	}
 	denom, err := k.BondDenom(ctx)
