@@ -135,12 +135,14 @@ func (k Keeper) createValidator(ctx context.Context, computeResult ComputeResult
 	if err != nil {
 		return nil, err
 	}
+	accAddr := sdk.AccAddress(newValAddr)
+
 	createValidatorMsg, err := types.NewMsgCreateValidator(
 		newValAddr.String(),
 		computeResult.ValidatorPubKey,
 		sdk.NewCoin(denom, math.NewInt(computeResult.Power)),
 		types.Description{
-			Moniker: computeResult.OperatorAddress,
+			Moniker: accAddr.String(),
 			Details: "Created after Proof of Compute",
 		},
 
