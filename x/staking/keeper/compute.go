@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"fmt"
 
 	"cosmossdk.io/math"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -136,17 +135,13 @@ func (k Keeper) createValidator(ctx context.Context, computeResult ComputeResult
 	if err != nil {
 		return nil, err
 	}
-	// Create a short hex moniker from the address bytes
-	moniker := fmt.Sprintf("%X", newValAddr.Bytes())
-
-	logger.Info("Creating validator with moniker", "moniker", moniker, "moniker_length", len(moniker))
 
 	createValidatorMsg, err := types.NewMsgCreateValidator(
 		newValAddr.String(),
 		computeResult.ValidatorPubKey,
 		sdk.NewCoin(denom, math.NewInt(computeResult.Power)),
 		types.Description{
-			Moniker: moniker,
+			Moniker: newValAddr.String(),
 			Details: "Created after Proof of Compute",
 		},
 
@@ -157,7 +152,6 @@ func (k Keeper) createValidator(ctx context.Context, computeResult ComputeResult
 		},
 		math.NewInt(1),
 	)
-	// I think the Go fanatics are off their rocker. This is a lot of boilerplate.
 	if err != nil {
 		logger.Error("Error creating validator message", "error", err.Error())
 		return nil, err
