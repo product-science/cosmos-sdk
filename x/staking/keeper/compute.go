@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	"cosmossdk.io/math"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -135,14 +136,17 @@ func (k Keeper) createValidator(ctx context.Context, computeResult ComputeResult
 	if err != nil {
 		return nil, err
 	}
-	accAddr := sdk.AccAddress(newValAddr)
+	// Create a short hex moniker from the address bytes
+	moniker := fmt.Sprintf("%X", newValAddr.Bytes())
+
+	logger.Info("Creating validator with moniker", "moniker", moniker, "moniker_length", len(moniker))
 
 	createValidatorMsg, err := types.NewMsgCreateValidator(
 		newValAddr.String(),
 		computeResult.ValidatorPubKey,
 		sdk.NewCoin(denom, math.NewInt(computeResult.Power)),
 		types.Description{
-			Moniker: accAddr.String(),
+			Moniker: moniker,
 			Details: "Created after Proof of Compute",
 		},
 
