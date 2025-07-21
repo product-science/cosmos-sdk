@@ -179,25 +179,18 @@ func (k Keeper) Slash(ctx context.Context, consAddr sdk.ConsAddress, infractionH
 		return math.NewInt(0), err
 	}
 
-	// The following block is commented out because this modified staking module
-	// no longer manages real tokens. It only manages abstract "compute power"
-	// scores. The burn functions would attempt to burn real tokens from pools
-	// that are now always empty, causing a chain-halting `insufficient funds`
-	// error. The actual financial penalty (slashing real collateral) is handled
-	// by a separate module that listens for the `BeforeValidatorSlashed` hook.
-	//
-	// switch validator.GetStatus() {
-	// case types.Bonded:
-	// 	if err := k.burnBondedTokens(ctx, tokensToBurn); err != nil {
-	// 		return math.NewInt(0), err
-	// 	}
-	// case types.Unbonding, types.Unbonded:
-	// 	if err := k.burnNotBondedTokens(ctx, tokensToBurn); err != nil {
-	// 		return math.NewInt(0), err
-	// 	}
-	// default:
-	// 	panic("invalid validator status")
-	// }
+	switch validator.GetStatus() {
+	case types.Bonded:
+		if err := k.burnBondedTokens(ctx, tokensToBurn); err != nil {
+			return math.NewInt(0), err
+		}
+	case types.Unbonding, types.Unbonded:
+		if err := k.burnNotBondedTokens(ctx, tokensToBurn); err != nil {
+			return math.NewInt(0), err
+		}
+	default:
+		panic("invalid validator status")
+	}
 
 	logger.Info(
 		"validator slashed by slash factor",
@@ -285,16 +278,9 @@ func (k Keeper) SlashUnbondingDelegation(ctx context.Context, unbondingDelegatio
 		}
 	}
 
-	// The following block is commented out because this modified staking module
-	// no longer manages real tokens. It only manages abstract "compute power"
-	// scores. The burn functions would attempt to burn real tokens from pools
-	// that are now always empty, causing a chain-halting `insufficient funds`
-	// error. The actual financial penalty (slashing real collateral) is handled
-	// by a separate module that listens for the `BeforeValidatorSlashed` hook.
-
-	// if err := k.burnNotBondedTokens(ctx, burnedAmount); err != nil {
-	// 	return math.ZeroInt(), err
-	// }
+	if err := k.burnNotBondedTokens(ctx, burnedAmount); err != nil {
+		return math.ZeroInt(), err
+	}
 
 	return totalSlashAmount, nil
 }
@@ -417,20 +403,13 @@ func (k Keeper) SlashRedelegation(ctx context.Context, srcValidator types.Valida
 		}
 	}
 
-	// The following block is commented out because this modified staking module
-	// no longer manages real tokens. It only manages abstract "compute power"
-	// scores. The burn functions would attempt to burn real tokens from pools
-	// that are now always empty, causing a chain-halting `insufficient funds`
-	// error. The actual financial penalty (slashing real collateral) is handled
-	// by a separate module that listens for the `BeforeValidatorSlashed` hook.
+	if err := k.burnBondedTokens(ctx, bondedBurnedAmount); err != nil {
+		return math.ZeroInt(), err
+	}
 
-	// if err := k.burnBondedTokens(ctx, bondedBurnedAmount); err != nil {
-	// 	return math.ZeroInt(), err
-	// }
-
-	// if err := k.burnNotBondedTokens(ctx, notBondedBurnedAmount); err != nil {
-	// 	return math.ZeroInt(), err
-	// }
+	if err := k.burnNotBondedTokens(ctx, notBondedBurnedAmount); err != nil {
+		return math.ZeroInt(), err
+	}
 
 	return totalSlashAmount, nil
 }
