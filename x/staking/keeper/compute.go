@@ -110,16 +110,27 @@ func (k Keeper) setValidatorPower(ctx context.Context, validator types.Validator
 }
 
 func (k Keeper) delegateResult(ctx context.Context, computeResult ComputeResult, validatorAddress string) error {
+	// Note: computeResult.OperatorAddress is the operator address of the validator
+	valAddr, err := sdk.ValAddressFromBech32(computeResult.OperatorAddress)
+	if err != nil {
+		k.Logger(ctx).Error("Error parsing operator address", "address", computeResult.OperatorAddress, "error", err)
+		return err
+	}
+
+	delegatorAccountAddress := sdk.AccAddress(valAddr)
+
 	delegation := types.Delegation{
-		DelegatorAddress: computeResult.OperatorAddress,
+		DelegatorAddress: delegatorAccountAddress.String(),
 		ValidatorAddress: validatorAddress,
 	}
+
 	delegation.Shares = math.LegacyNewDec(computeResult.Power)
-	err := k.SetDelegation(ctx, delegation)
+	err = k.SetDelegation(ctx, delegation)
 	if err != nil {
 		k.Logger(ctx).Error("Error setting delegation", "error", err.Error())
 		return err
 	}
+
 	return err
 }
 
