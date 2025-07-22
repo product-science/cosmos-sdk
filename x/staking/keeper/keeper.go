@@ -22,6 +22,53 @@ var _ types.ValidatorSet = Keeper{}
 // Implements DelegationSet interface
 var _ types.DelegationSet = Keeper{}
 
+// NoOpBankKeeper is a wrapper that makes all bank keeper operations no-ops
+type NoOpBankKeeper struct {
+	inner types.BankKeeper
+}
+
+// NewNoOpBankKeeper creates a new no-op bank keeper wrapper
+func NewNoOpBankKeeper(bk types.BankKeeper) *NoOpBankKeeper {
+	return &NoOpBankKeeper{inner: bk}
+}
+
+// Read operations delegate to the inner keeper
+func (n *NoOpBankKeeper) GetAllBalances(ctx context.Context, addr sdk.AccAddress) sdk.Coins {
+	return n.inner.GetAllBalances(ctx, addr)
+}
+
+func (n *NoOpBankKeeper) GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin {
+	return n.inner.GetBalance(ctx, addr, denom)
+}
+
+func (n *NoOpBankKeeper) LockedCoins(ctx context.Context, addr sdk.AccAddress) sdk.Coins {
+	return n.inner.LockedCoins(ctx, addr)
+}
+
+func (n *NoOpBankKeeper) SpendableCoins(ctx context.Context, addr sdk.AccAddress) sdk.Coins {
+	return n.inner.SpendableCoins(ctx, addr)
+}
+
+func (n *NoOpBankKeeper) GetSupply(ctx context.Context, denom string) sdk.Coin {
+	return n.inner.GetSupply(ctx, denom)
+}
+
+func (n *NoOpBankKeeper) SendCoinsFromModuleToModule(ctx context.Context, senderPool, recipientPool string, amt sdk.Coins) error {
+	return nil
+}
+
+func (n *NoOpBankKeeper) UndelegateCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error {
+	return nil
+}
+
+func (n *NoOpBankKeeper) DelegateCoinsFromAccountToModule(ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error {
+	return nil
+}
+
+func (n *NoOpBankKeeper) BurnCoins(ctx context.Context, name string, amt sdk.Coins) error {
+	return nil
+}
+
 // Keeper of the x/staking store
 type Keeper struct {
 	storeService          storetypes.KVStoreService
@@ -62,11 +109,14 @@ func NewKeeper(
 		panic("validator and/or consensus address codec are nil")
 	}
 
+	// Wrap the bank keeper with no-op wrapper
+	wrappedBankKeeper := NewNoOpBankKeeper(bk)
+
 	return &Keeper{
 		storeService:          storeService,
 		cdc:                   cdc,
 		authKeeper:            ak,
-		bankKeeper:            bk,
+		bankKeeper:            wrappedBankKeeper,
 		hooks:                 nil,
 		authority:             authority,
 		validatorAddressCodec: validatorAddressCodec,
